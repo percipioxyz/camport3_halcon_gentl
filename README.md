@@ -1,2 +1,2 @@
-# camport3_halcon_gntl
-GNTL package for halcon
+# camport3_halcon_gentl
+GenTL package for halcon
