@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="19.11.0.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* </c>
+<c>* Example for grabbing images via the GenICamTL interface</c>
+<c>* (benchmark test)</c>
+<c>* </c>
+<c>* </c>
+<c></c>
+<l>dev_close_window()</l>
+<l>dev_update_off()</l>
+<l>Width := 640</l>
+<l>Height := 480</l>
+<l>VisualizeOM3D := false</l>
+<c>*</c>
+<l>info_framegrabber ('GenICamTL', 'info_boards', Information, DeviceList)</l>
+<l>tuple_regexp_select (DeviceList, 'percipio.cti', Device)</l>
+<l>if (Device == [])</l>
+<c>     * No Percipio camera found</c>
+<l>    stop ()</l>
+<l>endif</l>
+<c></c>
+<l>open_framegrabber ('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1, 'false', 'default', Device, -1, -1, AcqHandle)</l>
+<c></c>
+<l>dev_open_window (200, 200, 640, 480, 'black', WindowHandleColor)</l>
+<c></c>
+<l>set_framegrabber_param(AcqHandle, 'SourceSelector', 'Source_Color')</l>
+<l>set_framegrabber_param(AcqHandle, 'SourceMode', 'On')    </l>
+<c></c>
+<l>while (1) </l>
+<l>    try</l>
+<l>        grab_data_async (Image, Region, Contours, AcqHandle, -1, Data)</l>
+<l>        dev_set_window(WindowHandleColor)</l>
+<l>        dev_display(Image)</l>
+<l>    catch (Exception)</l>
+<l>        get_framegrabber_param(AcqHandle, 'DeviceConnectionStatus', DeviceConnectionStatus)</l>
+<l>        if (DeviceConnectionStatus == 'Inactive')</l>
+<l>            close_framegrabber (AcqHandle)</l>
+<l>            break</l>
+<l>        endif</l>
+<l>    endtry</l>
+<l>endwhile</l>
+<l>stop ()</l>
+<c>* </c>
+<l>close_framegrabber (AcqHandle)</l>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+</hdevelop>

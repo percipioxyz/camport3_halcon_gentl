@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="19.05.0.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* </c>
+<c>* Example how to use the GenICamTL interface</c>
+<c>* Query and display all available parameters.</c>
+<c>* </c>
+<l>InterfaceName := 'GenICamTL'</l>
+<c>* </c>
+<c>* Enable/Disable writing of parameter information into file.</c>
+<c>* Adjust the filename to your needs.</c>
+<l>InfoFile := ''</l>
+<l>* InfoFile := 'parameters_info.dat'</l>
+<l>if ('' != InfoFile)</l>
+<l>    open_file (InfoFile, 'output', FileHandle)</l>
+<l>else</l>
+<l>    FileHandle := []</l>
+<l>endif</l>
+<c>* </c>
+<c>* Open a window with specified dimensions</c>
+<l>dev_close_window ()</l>
+<l>WindowHeight := 800</l>
+<l>WindowWidth := 800</l>
+<l>dev_open_window (0, 0, WindowWidth, WindowHeight, 'black', WindowHandle)</l>
+<c>* </c>
+<l>dev_set_color ('white')</l>
+<l>write_info ([WindowHandle,FileHandle], 'InterfaceName = ' + InterfaceName + '\n')</l>
+<c>* </c>
+<c>* First do queries which are available even when no device</c>
+<c>* is connected.</c>
+<l>Handles := [InterfaceName,WindowHandle,FileHandle]</l>
+<c>* </c>
+<l>list_info ([1,Handles], 'revision', RevisionInfo, Revision)</l>
+<l>list_info ([2,Handles], 'defaults', DefaultsInfo, Defaults)</l>
+<l>list_info ([3,Handles], 'info_boards', InfoBoardsInfo, InfoBoards)</l>
+<l>list_info ([4,Handles], 'parameters', ParametersInfo, Parameters)</l>
+<l>list_info ([5,Handles], 'device', DeviceInfo, Devices)</l>
+<l>list_info ([6,Handles], 'camera_types', CameraTypesInfo, CameraTypes)</l>
+<l>list_info ([7,Handles], 'ports', PortsInfo, Ports)</l>
+<l>list_info ([8,Handles], 'color_space', ColorSpaceInfo, ColorSpace)</l>
+<l>list_info ([9,Handles], 'bits_per_channel', BitsPerChannelInfo, BitsPerChannel)</l>
+<l>list_info ([10,Handles], 'external_trigger', ExternalTriggerInfo, ExternalTrigger)</l>
+<l>list_info ([11,Handles], 'field', FieldInfo, Field)</l>
+<c>* </c>
+<l>write_info ([WindowHandle,FileHandle], '\n\n')</l>
+<c>* </c>
+<c>* Check if a device is available and if a special action</c>
+<c>* is needed to get it working with this interface.</c>
+<l>check_device (InterfaceName, Device, GenericParam)</l>
+<l>if (0 == |Device|)</l>
+<c>    * No device found, please connect one and/or check the</c>
+<c>    * documentation of the interface for system</c>
+<c>    * requirements and known problems.</c>
+<l>    stop ()</l>
+<l>endif</l>
+<c>* </c>
+<c>* Open device with defaults and suggested Generic parameter.</c>
+<l>open_framegrabber (InterfaceName, 0, 0, 0, 0, 0, 0, 'default', -1, 'default', GenericParam, 'false', 'default', Device, 0, -1, AcqHandle)</l>
+<l>dev_update_off ()</l>
+<c>* </c>
+<c>* Query all available parameter names and sort them.</c>
+<c>* If this is not available use the static list from</c>
+<c>* info_framegrabber(...,'parameters',...).</c>
+<l>dev_set_check ('~give_error')</l>
+<l>dev_error_var (HalconError, 1)</l>
+<c>* </c>
+<c>* Grab one image in order to see also those parameters</c>
+<c>* that do not exist before.</c>
+<l>grab_image (Image, AcqHandle)</l>
+<l>get_framegrabber_param (AcqHandle, 'available_param_names', ParameterValues)</l>
+<l>Status := HalconError</l>
+<l>dev_set_check ('give_error')</l>
+<l>if (H_MSG_TRUE != Status)</l>
+<l>    ParameterValues := Parameters</l>
+<l>endif</l>
+<l>tuple_sort (ParameterValues, ParameterValuesSorted)</l>
+<c>* </c>
+<l>list_parameters (ParameterValuesSorted, WindowWidth, WindowHeight, FileHandle, AcqHandle)</l>
+<c>* </c>
+<l>if (0 != |FileHandle|)</l>
+<l>    fwrite_string (FileHandle, '\n')</l>
+<l>    close_file (FileHandle)</l>
+<l>endif</l>
+<c>* </c>
+<l>dev_update_on ()</l>
+<l>close_framegrabber (AcqHandle)</l>
+<c>* </c>
+<c>* </c>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="check_device">
+<interface>
+<ic>
+<par name="InterfaceName" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="Device" base_type="ctrl" dimension="0"/>
+<par name="GenericParam" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<c>* List all devices for specific image acquisition interface</c>
+<l>info_framegrabber (InterfaceName, 'info_boards', Info, Values)</l>
+<c>* </c>
+<c>* Now check the first device which is found, assuming this is the</c>
+<c>* one which you want to use.</c>
+<l>if (|Values|)</l>
+<l>    ParamTag := 'device:'</l>
+<l>    split_strstr (Values, ' | ', ' ', SubStrings)</l>
+<l>    Pos := strrstr(SubStrings,ParamTag)</l>
+<l>    Index := find(Pos,0)</l>
+<l>    if (Index != -1)</l>
+<c>        * Get real device name, as the device name might also contain</c>
+<c>        * double-colons merge them after splitting if necessary.</c>
+<l>        TagsSplitted := split(SubStrings[Index],':')</l>
+<l>        Device := ''</l>
+<l>        for Index := 1 to |TagsSplitted| - 2 by 1</l>
+<l>            Device := Device + TagsSplitted[Index] + ':'</l>
+<l>        endfor</l>
+<l>        Device := Device + TagsSplitted[Index]</l>
+<l>    else</l>
+<l>        info_framegrabber (InterfaceName, 'device', Info, Values)</l>
+<l>        if (|Values|)</l>
+<l>            Device := Values[0]</l>
+<l>        else</l>
+<l>            Device := []</l>
+<l>        endif</l>
+<l>        GenericParam := -1</l>
+<l>        return ()</l>
+<l>    endif</l>
+<l>else</l>
+<l>    Device := []</l>
+<l>    GenericParam := -1</l>
+<l>    return ()</l>
+<l>endif</l>
+<c>* </c>
+<c>* Check if the device is not correctly configured for use</c>
+<c>* with this interface and extract the necessary action from</c>
+<c>* the 'suggestion' tag.</c>
+<l>ParamTag := 'suggestion:'</l>
+<l>split_strstr (Values, ' | ', ' ', SubStrings)</l>
+<l>Pos := strrstr(SubStrings,ParamTag)</l>
+<l>Index := find(Pos,0)</l>
+<l>if (Index != -1)</l>
+<c>    * Need to do something special while opening the device</c>
+<l>    TagsSplitted := split(SubStrings[Index],':')</l>
+<l>    GenericParam := TagsSplitted[1]</l>
+<l>else</l>
+<c>    * Nothing special to do</c>
+<l>    GenericParam := -1</l>
+<l>endif</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="check_device">
+<parameters>
+<parameter id="Device"/>
+<parameter id="GenericParam"/>
+<parameter id="InterfaceName"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="write_list_or_value">
+<interface>
+<ic>
+<par name="Handles" base_type="ctrl" dimension="0"/>
+<par name="Value" base_type="ctrl" dimension="0"/>
+<par name="ForceBrackets" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<l>if (0 == |Value|)</l>
+<l>    write_info (Handles, '[]')</l>
+<l>    return ()</l>
+<l>endif</l>
+<l>ParameterValuesOut := Value</l>
+<c>* </c>
+<l>if (|ParameterValuesOut| &gt; 1 or ForceBrackets)</l>
+<l>    write_info (Handles, '[')</l>
+<l>endif</l>
+<l>for Index2 := 0 to |ParameterValuesOut| - 2 by 1</l>
+<l>    if (is_string(ParameterValuesOut[Index2]))</l>
+<l>        ParameterValuesOut[Index2] := '\'' + ParameterValuesOut[Index2] + '\''</l>
+<l>    endif</l>
+<l>    write_info (Handles, ParameterValuesOut[Index2] + ',')</l>
+<l>endfor</l>
+<l>if (is_string(ParameterValuesOut[Index2]))</l>
+<l>    ParameterValuesOut[Index2] := '\'' + ParameterValuesOut[Index2] + '\''</l>
+<l>endif</l>
+<l>write_info (Handles, ParameterValuesOut[Index2])</l>
+<l>if (|ParameterValuesOut| &gt; 1 or ForceBrackets)</l>
+<l>    write_info (Handles, ']')</l>
+<l>endif</l>
+<l>return ()</l>
+</body>
+<docu id="write_list_or_value">
+<parameters>
+<parameter id="ForceBrackets"/>
+<parameter id="Handles"/>
+<parameter id="Value"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="write_info">
+<interface>
+<ic>
+<par name="Handles" base_type="ctrl" dimension="0"/>
+<par name="Info" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<l>WindowHandle := Handles[0]</l>
+<l>write_string (WindowHandle, Info)</l>
+<c>* </c>
+<l>if (2 == |Handles|)</l>
+<l>    FileHandle := Handles[1]</l>
+<l>    fwrite_string (FileHandle, Info)</l>
+<l>endif</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="write_info">
+<parameters>
+<parameter id="Handles"/>
+<parameter id="Info"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="list_info">
+<interface>
+<ic>
+<par name="Params" base_type="ctrl" dimension="0"/>
+<par name="Query" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="Info" base_type="ctrl" dimension="0"/>
+<par name="Value" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>Count := Params[0]</l>
+<l>InterfaceName := Params[1]</l>
+<l>WindowHandle := Params[2]</l>
+<l>if (4 == |Params|)</l>
+<l>    FileHandle := Params[3]</l>
+<l>else</l>
+<l>    FileHandle := []</l>
+<l>endif</l>
+<l>Handles := [WindowHandle,FileHandle]</l>
+<c>* </c>
+<l>info_framegrabber (InterfaceName, Query, Info, Value)</l>
+<l>set_tposition (WindowHandle, (12 * Count) + 2, 10)</l>
+<c>* </c>
+<l>dev_set_color ('white')</l>
+<l>write_info (Handles, Query + ' = ')</l>
+<l>dev_set_color ('green')</l>
+<l>write_list_or_value (Handles, Value, false)</l>
+<l>write_info (Handles, '\n')</l>
+<l>dev_set_color ('white')</l>
+<c>* </c>
+<l>return ()</l>
+</body>
+<docu id="list_info">
+<parameters>
+<parameter id="Info"/>
+<parameter id="Params"/>
+<parameter id="Query"/>
+<parameter id="Value"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="list_parameters">
+<interface>
+<ic>
+<par name="ParameterValues" base_type="ctrl" dimension="0"/>
+<par name="WindowWidth" base_type="ctrl" dimension="0"/>
+<par name="WindowHeight" base_type="ctrl" dimension="0"/>
+<par name="FileHandle" base_type="ctrl" dimension="0"/>
+<par name="AcqHandle" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<c>* Open graphics window for parameter output</c>
+<l>WindowHandles := []</l>
+<l>NumWindows := |ParameterValues| / 65</l>
+<l>for Index := 0 to NumWindows by 1</l>
+<l>    dev_open_window (0, 150 + Index * 300, WindowWidth, WindowHeight, 'black', CurrentWindowHandle)</l>
+<l>    WindowHandles := [WindowHandles,CurrentWindowHandle]</l>
+<l>endfor</l>
+<c>* </c>
+<c>* Query current parameter values</c>
+<l>count := 0</l>
+<l>for Index := 0 to |ParameterValues| - 1 by 1</l>
+<l>    if (Index % 65 == 0)</l>
+<l>        CurrentWindowHandle := WindowHandles[count]</l>
+<l>        dev_set_window (CurrentWindowHandle)</l>
+<l>        count := count + 1</l>
+<l>    endif</l>
+<l>    Handles := [CurrentWindowHandle,FileHandle]</l>
+<c>    * *****************************************************</c>
+<l>    dev_set_color ('white')</l>
+<l>    set_tposition (CurrentWindowHandle, (12 * (Index - 65 * (count - 1))) + 2, 10)</l>
+<l>    write_info (Handles, ParameterValues[Index] + ': ')</l>
+<l>    dev_set_check ('~give_error')</l>
+<l>    dev_error_var (HalconError, 1)</l>
+<l>    get_framegrabber_param (AcqHandle, ParameterValues[Index] + '_access', ParameterAccess)</l>
+<l>    Status := HalconError</l>
+<l>    if (Status == H_MSG_TRUE)</l>
+<l>        if ('wo' == ParameterAccess)</l>
+<l>            dev_set_color ('slate blue')</l>
+<l>            write_info (Handles, '&lt;writeonly parameter&gt; ')</l>
+<l>        endif</l>
+<l>        if ('na' == ParameterAccess)</l>
+<l>            dev_set_color ('gold')</l>
+<l>            write_info (Handles, '&lt;currently not available parameter&gt; ')</l>
+<l>        endif</l>
+<l>    endif</l>
+<l>    if (strstr(ParameterValues[Index],'do_') == 0)</l>
+<l>        dev_set_color ('slate blue')</l>
+<l>        write_info (Handles, '&lt;action parameter&gt; ')</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    get_framegrabber_param (AcqHandle, ParameterValues[Index] + '_streamable', ParameterStreamable)</l>
+<l>    Status := HalconError</l>
+<l>    if (Status == H_MSG_TRUE and 1 == ParameterStreamable)</l>
+<l>        dev_set_color ('light blue')</l>
+<l>        write_info (Handles, ' &lt;streamable&gt; ')</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    if ('wo' != ParameterAccess and 'na' != ParameterAccess)</l>
+<l>        get_framegrabber_param (AcqHandle, ParameterValues[Index], ParameterValue)</l>
+<l>        Status := HalconError</l>
+<l>        if (H_MSG_TRUE != Status)</l>
+<l>            dev_set_color ('red')</l>
+<l>            write_info (Handles, '&lt;not readable&gt; ')</l>
+<l>        else</l>
+<l>            dev_set_color ('green')</l>
+<l>            write_list_or_value (Handles, ParameterValue, false)</l>
+<l>        endif</l>
+<l>    endif</l>
+<c>    * </c>
+<l>    dev_set_color ('green')</l>
+<l>    get_framegrabber_param (AcqHandle, ParameterValues[Index] + '_range', ParameterValuesOut)</l>
+<l>    Status := HalconError</l>
+<l>    Query := 'Range'</l>
+<l>    if (Status != H_MSG_TRUE)</l>
+<l>        get_framegrabber_param (AcqHandle, ParameterValues[Index] + '_values', ParameterValuesOut)</l>
+<l>        Status := HalconError</l>
+<l>        Query := 'Values'</l>
+<l>    endif</l>
+<l>    dev_set_check ('give_error')</l>
+<l>    if (Status == H_MSG_TRUE)</l>
+<c>        * _range or _values query ok</c>
+<l>        write_info (Handles, '   ')</l>
+<l>        write_list_or_value (Handles, ParameterValuesOut, true)</l>
+<l>    endif</l>
+<l>    write_info (Handles, '\n')</l>
+<l>endfor</l>
+<l>return ()</l>
+</body>
+<docu id="list_parameters">
+<parameters>
+<parameter id="AcqHandle"/>
+<parameter id="FileHandle"/>
+<parameter id="ParameterValues"/>
+<parameter id="WindowHeight"/>
+<parameter id="WindowWidth"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="split_strstr">
+<interface>
+<ic>
+<par name="Values" base_type="ctrl" dimension="0"/>
+<par name="ToFind1" base_type="ctrl" dimension="0"/>
+<par name="ToFind2" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="SubStrings" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>SubStrings := []</l>
+<l>SubString := Values[0]</l>
+<l>LastPos := -1</l>
+<l>repeat</l>
+<l>    Pos := strstr(SubString,ToFind1)</l>
+<l>    if (Pos != 0 and LastPos != -1)</l>
+<l>        if (-1 == Pos)</l>
+<l>            SubStrings := [SubStrings,SubString{0:strlen(SubString) - 1}]</l>
+<l>            break</l>
+<l>        else</l>
+<l>            SubStrings := [SubStrings,SubString{0:Pos - 1}]</l>
+<l>        endif</l>
+<l>    elseif (-1 == Pos and -1 == LastPos)</l>
+<c>        * ToFind1 not found, try simple split with ToFind2</c>
+<l>        SubStrings := split(Values[0],ToFind2)</l>
+<l>        break</l>
+<l>    endif</l>
+<l>    SubString := str_lastn(SubString,Pos + 3)</l>
+<l>    LastPos := Pos</l>
+<l>until (-1 == Pos)</l>
+<l>return ()</l>
+</body>
+<docu id="split_strstr">
+<parameters>
+<parameter id="SubStrings"/>
+<parameter id="ToFind1"/>
+<parameter id="ToFind2"/>
+<parameter id="Values"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>

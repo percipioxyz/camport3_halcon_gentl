@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hdevelop file_version="1.2" halcon_version="18.11.4.0">
+<procedure name="main">
+<interface/>
+<body>
+<c>* </c>
+<c>* Example for the usage of a Percipio 3D camera in HALCON.</c>
+<c>* </c>
+<c>* This sample shows how to acquire images and data from the camera.</c>
+<c>* A HALCON ObjectModel3D is automatically created by the interface.</c>
+<c>* </c>
+<c>* Please note that you first need to install the matching Percipio</c>
+<c>* GenTL Producer. After this, you can access the camera with the</c>
+<c>* HALCON GenICamTL interface.</c>
+<c>*</c>
+<l>dev_close_window()</l>
+<l>dev_update_off()</l>
+<l>Width := 640</l>
+<l>Height := 480</l>
+<c>*</c>
+<l>info_framegrabber ('GenICamTL', 'info_boards', Information, DeviceList)</l>
+<l>tuple_regexp_select (DeviceList, 'percipio.cti', Device)</l>
+<l>if (Device == [])</l>
+<c>     * No Percipio camera found</c>
+<l>    stop ()</l>
+<l>endif</l>
+<c></c>
+<l>open_framegrabber ('GenICamTL', 1, 1, 0, 0, 0, 0, 'default', -1, 'default', -1, 'false', 'default', Device, -1, -1, AcqHandle)</l>
+<c>*</c>
+<c>* Enable all sources</c>
+<l>get_framegrabber_param(AcqHandle, 'SourceSelector_values', SourceSelectorValues)</l>
+<l>for Index := 0 to |SourceSelectorValues| - 1 by 1</l>
+<l>    set_framegrabber_param(AcqHandle, 'SourceSelector', SourceSelectorValues[Index])</l>
+<l>    get_framegrabber_param(AcqHandle, 'ImageMode_values', ImageModeValues)</l>
+<l>    set_framegrabber_param(AcqHandle, 'ImageMode', ImageModeValues[0])</l>
+<l>    set_framegrabber_param(AcqHandle, 'SourceMode', 'On')</l>
+<l>endfor</l>
+<c></c>
+<c>* Set AlignMode: NoAlign/Color2Depth/Depth2Color</c>
+<l>set_framegrabber_param(AcqHandle, 'AlignMode', 'Color2Depth')</l>
+<c></c>
+<c>*</c>
+<c>* Configure 3D-settings</c>
+<l>set_framegrabber_param (AcqHandle, 'create_objectmodel3d', 'enable')</l>
+<l>set_framegrabber_param (AcqHandle, 'add_objectmodel3d_overlay_attrib', 'enable')</l>
+<c></c>
+<l>create_3d_window (Width, Height, Window3DHandle)</l>
+<c>*</c>
+<c>* Start acquisition</c>
+<l>grab_image_start(AcqHandle, -1)</l>
+<l>while (1)</l>
+<l>    grab_data_async (Images, Region, Contours, AcqHandle, -1, ObjectModel3D)</l>
+<c>    *</c>
+<l>    get_framegrabber_param(AcqHandle, 'image_source_id', image_source_id)</l>
+<l>    Depth := false</l>
+<c>    *</c>
+<c>    * Display images</c>
+<l>    count_obj(Images, NumImages)</l>
+<l>    for Index := 1 to NumImages by 1</l>
+<l>        if (image_source_id[Index-1] == 0x100000)</l>
+<l>            select_obj (Images, Image, Index)</l>
+<l>            RGB := Image  </l>
+<l>        elseif (image_source_id[Index-1] == 0x10000)</l>
+<l>            Depth := true</l>
+<l>        endif</l>
+<l>    endfor</l>
+<c>    *</c>
+<c>    * Display 3D model</c>
+<l>    if (Depth)</l>
+<l>        object_model_3d_to_xyz(X, Y, Z, ObjectModel3D, 'from_xyz_map', [], [])</l>
+<l>        xyz_attrib_to_object_model_3d (X, Y, Z, RGB, ['&amp;red', '&amp;green', '&amp;blue'], ObjectModel3D)</l>
+<l>        visualize_object_model_3d (Window3DHandle, ObjectModel3D, [], [], ['color_attrib','lut','point_size', 'red_channel_attrib', 'green_channel_attrib', 'blue_channel_attrib'], ['coord_z','rainbow',1, '&amp;red', '&amp;green', '&amp;blue'], [], [], [], PoseOut)</l>
+<l>    endif</l>
+<l>endwhile</l>
+<l>stop ()</l>
+<c>* </c>
+<l>close_framegrabber (AcqHandle)</l>
+</body>
+<docu id="main">
+<parameters/>
+</docu>
+</procedure>
+<procedure name="disp_current_image">
+<interface>
+<io>
+<par name="Images" base_type="iconic" dimension="0"/>
+</io>
+<ic>
+<par name="Index" base_type="ctrl" dimension="0"/>
+<par name="WindowHandle" base_type="ctrl" dimension="0"/>
+<par name="Title" base_type="ctrl" dimension="0"/>
+</ic>
+</interface>
+<body>
+<l>select_obj (Images, Image, Index)</l>
+<l>dev_set_window (WindowHandle)</l>
+<l>if (strstr(Title, 'IR') == 0)</l>
+<l>   dev_set_lut('inv_sqrt')</l>
+<l>endif</l>
+<l>dev_display (Image)</l>
+<l>dev_disp_text (Title, 'window', 12, 12, 'black', [], [])</l>
+<l>return ()</l>
+</body>
+<docu id="disp_current_image">
+<parameters>
+<parameter id="Images"/>
+<parameter id="Index"/>
+<parameter id="Title"/>
+<parameter id="WindowHandle"/>
+</parameters>
+</docu>
+</procedure>
+<procedure name="create_3d_window">
+<interface>
+<ic>
+<par name="Width" base_type="ctrl" dimension="0"/>
+<par name="Height" base_type="ctrl" dimension="0"/>
+</ic>
+<oc>
+<par name="Window3DHande" base_type="ctrl" dimension="0"/>
+</oc>
+</interface>
+<body>
+<l>            dev_open_window (0, 2*Width, Width, Height, 'black', Window3DHande)</l>
+<l>            dev_set_window (Window3DHande)</l>
+<l>            dev_set_lut('default')</l>
+<l>return ()</l>
+</body>
+<docu id="create_3d_window">
+<parameters>
+<parameter id="Height"/>
+<parameter id="Width"/>
+<parameter id="Window3DHande"/>
+</parameters>
+</docu>
+</procedure>
+</hdevelop>
